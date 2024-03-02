@@ -8,15 +8,6 @@ import matplotlib.pyplot as plt
 import datetime
 
 
-# Define a custom constructor for Python tuples
-# Define a custom constructor for Python tuples
-def tuple_constructor(loader, node):
-    # Load the sequence of elements from the YAML node
-    value = loader.construct_sequence(node)
-    # Return the tuple created from the sequence
-    return tuple(value)
-
-
 class FramesData:
     def __init__(self):
         self.frames = []
@@ -316,6 +307,17 @@ class EightFramesApp:
             for key in self.yaml_data['Days'][self.fresh_day_index]['task_list']:
                 self.yaml_data['Days'][self.fresh_day_index]['task_list'][key][2] = 1
 
+    def remove_completed_tasks(self, man_tasks):
+        return_tasks = []
+        for index, task in enumerate(man_tasks):
+            print(self.yaml_data['Tasks_List'][task][0])
+            print(self.yaml_data['Tasks_List'][task][1])
+            if self.yaml_data['Tasks_List'][task][0] - self.yaml_data['Tasks_List'][task][1] <= 0:
+                print('removing ' + task + '\n')
+            else:
+                return_tasks.append(man_tasks[index])
+        return return_tasks
+
     def button_clicked(self, frame_number, *args):
         print(f"Button from frame {frame_number} was clicked.")
         if frame_number == 0:
@@ -413,48 +415,72 @@ class EightFramesApp:
             print(list_tasks)
             print(man_tasks)
             print(avg)
+            man_tasks = self.remove_completed_tasks(man_tasks)
+            list_tasks = self.remove_completed_tasks(list_tasks)
             slots = self.radio_button.get()
-            remaining_slots = slots - len(man_tasks)
-            if remaining_slots <= 0:
-                total_tasks = man_tasks.copy()
-                remaining_slots = 0
+            if not man_tasks and not list_tasks:
+                self.hide_all_widgets(self.frames.frames[3])
+                messagebox.showinfo("Pop-up", f"No more tasks remaining!!!!")
             else:
-                total_tasks = list_tasks.copy()
-                while len(total_tasks) < remaining_slots:
-                    total_tasks.extend(man_tasks)
-                    total_tasks.extend(list_tasks)
-
-            tasks_for_the_day = []
-            tasks_for_the_day.extend(total_tasks[:remaining_slots])
-            tasks_for_the_day.extend(man_tasks)
-            count_dict = {}
-            for item in tasks_for_the_day:
-                count_dict[item] = count_dict.get(item, 0) + 1
-                if count_dict[item] > 1:
-                    new_item = f"{item}-session-{count_dict[item]}"
-                    self.fresh_day[new_item] = [30, values[item], 0]
+                if not man_tasks:
+                    print("No mandatory tasks.")
+                    total_tasks = list_tasks.copy()
+                    remaining_slots = slots - len(total_tasks)
+                    if remaining_slots > 0:
+                        while len(total_tasks) < slots:
+                            total_tasks.extend(list_tasks)
+                    else:
+                        total_tasks = total_tasks[:slots]
+                    tasks_for_the_day = total_tasks[:slots]
+                elif not list_tasks:
+                    print("No additional tasks beyond mandatory ones")
+                    total_tasks = man_tasks.copy()
+                    remaining_slots = slots - len(total_tasks)
+                    if remaining_slots > 0:
+                        while len(total_tasks) < slots:
+                            total_tasks.extend(man_tasks)
+                    else:
+                        total_tasks = total_tasks[:slots]
+                    tasks_for_the_day = total_tasks[:slots]
                 else:
-                    self.fresh_day[item] = [30, values[item], 0]
-                # priority, tick
-            print(self.fresh_day)
-            self.fresh_date = datetime.date.today()
-            if self.yaml_data['Days'][0]['Date'] == '':
-                self.yaml_data['Days'][0]['Date'] = self.fresh_date
-                self.yaml_data['Days'][0]['task_list'] = self.fresh_day
-                self.yaml_data['Days'][0]['avg'] = self.avg
-                self.fresh_day_index = 0
-            else:
-                new_day = max(self.yaml_data['Days'].keys())
-                new_day = new_day + 1
-                self.yaml_data['Days'][new_day] = {
-                    'Date': self.fresh_date,
-                    'task_list': self.fresh_day,
-                    'avg': self.avg
-                }
+                    total_tasks = list_tasks.copy()
+                    remaining_slots = slots - len(total_tasks)
+                    if remaining_slots > 0:
+                        while len(total_tasks) < slots:
+                            total_tasks.extend(man_tasks)
+                            total_tasks.extend(total_tasks)
+                    else:
+                        total_tasks = total_tasks[:slots]
+                    tasks_for_the_day = total_tasks[:slots]
 
-                self.fresh_day_index = new_day
-            self.hide_all_widgets(self.frames.frames[3])
-            self.frames.data = self.add_data_to_frames(5)
+                count_dict = {}
+                for item in tasks_for_the_day:
+                    count_dict[item] = count_dict.get(item, 0) + 1
+                    if count_dict[item] > 1:
+                        new_item = f"{item}-session-{count_dict[item]}"
+                        self.fresh_day[new_item] = [30, values[item], 0]
+                    else:
+                        self.fresh_day[item] = [30, values[item], 0]
+                    # priority, tick
+                print(self.fresh_day)
+                self.fresh_date = datetime.date.today()
+                if self.yaml_data['Days'][0]['Date'] == '':
+                    self.yaml_data['Days'][0]['Date'] = self.fresh_date
+                    self.yaml_data['Days'][0]['task_list'] = self.fresh_day
+                    self.yaml_data['Days'][0]['avg'] = self.avg
+                    self.fresh_day_index = 0
+                else:
+                    new_day = max(self.yaml_data['Days'].keys())
+                    new_day = new_day + 1
+                    self.yaml_data['Days'][new_day] = {
+                        'Date': self.fresh_date,
+                        'task_list': self.fresh_day,
+                        'avg': self.avg
+                    }
+
+                    self.fresh_day_index = new_day
+                self.hide_all_widgets(self.frames.frames[3])
+                self.frames.data = self.add_data_to_frames(5)
         elif frame_number == 5:
             print(self.fresh_date)
             print(self.checkbox_today)
@@ -471,8 +497,6 @@ class EightFramesApp:
                     if value.get() == 1:
                         self.set_third_element_to_one(element)
                         self.frames.data[5][index].config(state="disabled")
-
-
 
     def show_tasks(self, tasks):
         self.root = tk.Tk()
@@ -514,9 +538,6 @@ def on_closing(root, app):
 
 
 def main():
-    # root = tk.Tk()
-    # Add the custom constructor to the YAML loader
-    yaml.SafeLoader.add_constructor('tag:yaml.org,2002:python/tuple', tuple_constructor)
     app = EightFramesApp()
     # Define the function to be executed when the window is closed
     app.root.protocol("WM_DELETE_WINDOW", lambda: on_closing(app.root, app))
