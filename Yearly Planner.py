@@ -25,6 +25,7 @@ class FramesData:
 
 class EightFramesApp:
     def __init__(self):
+        self.fresh_day_index = None
         self.checkbox_vars_today = []
         self.checkbox_today = {}
         self.avg = 0
@@ -206,8 +207,8 @@ class EightFramesApp:
             tasks = self.yaml_data['Days'][new_day]['task_list']
             row = 0
             for task_name, task_data in tasks.items():
-                time_allocated, score, _ = task_data
-                v = self.create_checkbox(task_name, score, row, frame, data)
+                time_allocated, score, ena_disa = task_data
+                v = self.create_checkbox(task_name, score, row, frame, data, ena_disa)
                 self.checkbox_today.update({task_name: v})
                 row += 1
             width = frame.winfo_width()
@@ -272,7 +273,29 @@ class EightFramesApp:
                 return False
         return True
 
-    def set_third_element_to_one(self, input_dict, key=None):
+    def remove_after_session(self, input_str):
+        """
+        Remove everything after "-session-" in the input string and return the modified string.
+
+        Args:
+            input_str (str): The input string.
+
+        Returns:
+            str: The modified string after removing everything after "-session-".
+        """
+        if "-session-" in input_str:
+            return input_str.split("-session-")[0]
+        else:
+            return input_str
+
+    def update_main_task_list(self, frame_number=5):
+
+        for index, (element, value) in enumerate(self.checkbox_today.items()):
+            if value.get() == 1 and self.frames.data[frame_number][index]['state'] != 'disabled':
+                element_stripped = self.remove_after_session(element).lower()
+                self.yaml_data["Tasks_List"].get(element_stripped)[1] += 30
+
+    def set_third_element_to_one(self, key=None):
         """
         Set the third element in the list to 1 for the specified key in the input dictionary,
         or for all keys if no key is provided.
@@ -287,12 +310,12 @@ class EightFramesApp:
                   or for all keys if no key is provided.
         """
         if key is not None:
-            if key in input_dict:
-                input_dict[key][2] = 1
+            if key in self.yaml_data['Days'][self.fresh_day_index]['task_list']:
+                self.yaml_data['Days'][self.fresh_day_index]['task_list'][key][2] = 1
         else:
-            for key in input_dict:
-                input_dict[key][2] = 1
-        return input_dict
+            for key in self.yaml_data['Days'][self.fresh_day_index]['task_list']:
+                self.yaml_data['Days'][self.fresh_day_index]['task_list'][key][2] = 1
+
     def button_clicked(self, frame_number, *args):
         print(f"Button from frame {frame_number} was clicked.")
         if frame_number == 0:
@@ -345,6 +368,7 @@ class EightFramesApp:
                         self.fresh_date = self.yaml_data['Days'][new_day]['Date']
                         self.fresh_day = self.yaml_data['Days'][new_day]['task_list']
                         self.avg = self.yaml_data['Days'][new_day]['avg']
+                        self.fresh_day_index = new_day
                         self.hide_all_widgets(self.frames.frames[0])
                         self.frames.data = self.add_data_to_frames(5)
 
@@ -391,10 +415,14 @@ class EightFramesApp:
             print(avg)
             slots = self.radio_button.get()
             remaining_slots = slots - len(man_tasks)
-            total_tasks = list_tasks.copy()
-            while len(total_tasks) < remaining_slots:
-                total_tasks.extend(man_tasks)
-                total_tasks.extend(list_tasks)
+            if remaining_slots <= 0:
+                total_tasks = man_tasks.copy()
+                remaining_slots = 0
+            else:
+                total_tasks = list_tasks.copy()
+                while len(total_tasks) < remaining_slots:
+                    total_tasks.extend(man_tasks)
+                    total_tasks.extend(list_tasks)
 
             tasks_for_the_day = []
             tasks_for_the_day.extend(total_tasks[:remaining_slots])
@@ -409,38 +437,42 @@ class EightFramesApp:
                     self.fresh_day[item] = [30, values[item], 0]
                 # priority, tick
             print(self.fresh_day)
-            result = messagebox.askyesno("Choose Date", "Would you like to do this today?")
-            if result:
-                self.fresh_date = datetime.date.today()
-            else:
-                tomorrow_result = messagebox.askyesno("Choose Date", "Would you like to do this tomorrow?")
-                if tomorrow_result:
-                    self.fresh_date = datetime.date.today() + datetime.timedelta(days=1)
-                else:
-                    messagebox.showinfo("Pop-up", f"Make a choice Man!!!")
-                    return
+            self.fresh_date = datetime.date.today()
             if self.yaml_data['Days'][0]['Date'] == '':
                 self.yaml_data['Days'][0]['Date'] = self.fresh_date
                 self.yaml_data['Days'][0]['task_list'] = self.fresh_day
                 self.yaml_data['Days'][0]['avg'] = self.avg
+                self.fresh_day_index = 0
             else:
                 new_day = max(self.yaml_data['Days'].keys())
-                self.yaml_data['Days'][new_day]['Date'] = self.fresh_date
-                self.yaml_data['Days'][new_day]['task_list'] = self.fresh_day
-                self.yaml_data['Days'][new_day]['avg'] = self.avg
+                new_day = new_day + 1
+                self.yaml_data['Days'][new_day] = {
+                    'Date': self.fresh_date,
+                    'task_list': self.fresh_day,
+                    'avg': self.avg
+                }
+
+                self.fresh_day_index = new_day
             self.hide_all_widgets(self.frames.frames[3])
             self.frames.data = self.add_data_to_frames(5)
         elif frame_number == 5:
-
+            print(self.fresh_date)
             print(self.checkbox_today)
+            # day_task_list = self.yaml_data['Days'][self.fresh_day_index]['task_list']
             check = self.check_if_all_tasks_for_day_complete(self.checkbox_today)
+            self.update_main_task_list()
             if check:
-                self.set_third_element_to_one(self.checkbox_today)
-                self.update_main_task_list()
-            for element, value in zip(self.checkbox_today.keys(), self.checkbox_today.values()):
-                if value.get() == 1:
-                    self.set_third_element_to_one(self.checkbox_today, element)
-                    self.update_main_task_list()
+                self.set_third_element_to_one()
+                self.hide_all_widgets(self.frames.frames[5])
+                messagebox.showinfo("Pop-up", f"You are all done for the day Mate!!!")
+
+            else:
+                for index, (element, value) in enumerate(self.checkbox_today.items()):
+                    if value.get() == 1:
+                        self.set_third_element_to_one(element)
+                        self.frames.data[5][index].config(state="disabled")
+
+
 
     def show_tasks(self, tasks):
         self.root = tk.Tk()
@@ -454,11 +486,14 @@ class EightFramesApp:
         else:
             return 'orange', ("Verdana", 10 * 2)
 
-    def create_checkbox(self, task_name, priority, row, frame, data):
+    def create_checkbox(self, task_name, priority, row, frame, data, ena_disa):
         var = tk.IntVar()
         color, font = self.get_style(priority, self.avg)
         data.append(tk.Checkbutton(frame, text=task_name, fg=color, font=font, variable=var))
         data[-1].place(x=0, y=row + (30 * row))
+        if ena_disa:
+            data[-1].config(state="disabled")
+            var.set(1)
         return var
 
     def display_today(self):
