@@ -431,7 +431,7 @@ class EightFramesApp:
             self.hide_all_widgets(self.frames.frames[3])
             self.frames.data = self.add_data_to_frames(5)
         elif frame_number == 5:
-            # print(self.checkbox_vars_today)
+
             print(self.checkbox_today)
             check = self.check_if_all_tasks_for_day_complete(self.checkbox_today)
             if check:
