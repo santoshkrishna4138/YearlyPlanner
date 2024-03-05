@@ -443,12 +443,12 @@ class EightFramesApp:
                         total_tasks = total_tasks[:slots]
                     tasks_for_the_day = total_tasks[:slots]
                 else:
-                    total_tasks = list_tasks.copy()
+                    total_tasks = man_tasks.copy()
                     remaining_slots = slots - len(total_tasks)
                     if remaining_slots > 0:
                         while len(total_tasks) < slots:
+                            total_tasks.extend(list_tasks)
                             total_tasks.extend(man_tasks)
-                            total_tasks.extend(total_tasks)
                     else:
                         total_tasks = total_tasks[:slots]
                     tasks_for_the_day = total_tasks[:slots]
@@ -504,7 +504,7 @@ class EightFramesApp:
     def get_style(self, score, avg):
         # Define segments based on priority ranges
         if score > avg:
-            return 'red', ("Verdana", 12 * 2, 'bold')
+            return 'red', ("Verdana", int(12 * 1.5), 'bold')
         elif score < avg:
             return 'green', ("Verdana", 8 * 2)
         else:
